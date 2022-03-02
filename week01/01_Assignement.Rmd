@@ -1,0 +1,26 @@
+---
+title: "01_Assignement"
+author: "Michelle Baumgarnter"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### This assignment includes the following points
+
+- loading **epiwraps**
+- print session info
+
+
+```{r}
+library(epiwraps)
+
+```
+
+```{r}
+sessionInfo() 
+```
