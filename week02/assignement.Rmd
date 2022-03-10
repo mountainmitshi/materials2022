@@ -1,0 +1,83 @@
+---
+title: "02_Assignement"
+author: "Michelle Baumgarnter"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Using AnnotationHub, find and download the following annotations data:
+- The mouse (Mus Musculus) EnsDb object, version 102, genome build GRCm38
+- The mouse genome sequence ( dna_sm ) in TwoBit/2bit format for GRCm38
+- The drosophila melanogaster genome sequence ( dna_sm ) in TwoBit/2bit format for BDGP6
+
+###Using the mouse EnsDb object, find the following:
+- How many different ensembl gene IDs and gene symbols are there for protein-coding genes?
+- Plot the distribution (histogram) of how many exons protein-coding genes
+- Plot the distribution of the (spliced) length of protein-coding transcripts
+
+```{r}
+suppressPackageStartupMessages({
+  library(AnnotationHub)
+  library(ensembldb)
+  library(GenomicRanges)
+  library(epiwraps)
+})
+```
+
+##Fetch gene annotation
+
+```{r}
+ah <- AnnotationHub()
+#display(ah)
+#Browse the AnnotationHub to find the Mus Musculus GRCm38 version 102...  
+Mus102 <- ah[["AH89211"]]
+Mus102
+#...mouse genome sequence (dna_sm) in 2bit format for GRCm38...
+Musdna_sm <- ah[["AH88477"]]
+Musdna_sm
+#...and Drosophila melanogaster genome sequence (dna_sm) in two bit format for BDGP6. 
+Drodna_sm <- ah[["AH68180"]]
+Drodna_sm
+```
+
+##How many different ensembl gene IDs and gene symbols are there for protein-coding genes?
+```{r}
+#Shows me all the possible data types which can be retrieved from Mus102
+columns(Mus102)
+listTables(Mus102)
+listGenebiotypes(Mus102)
+MusGen <- genes(Mus102, filter = GeneBiotypeFilter("protein_coding"), columns=c("gene_id", "symbol"))
+#Shows me all the protein coding gene_id and symbols
+MusGen
+#Number of different gene_id and symbols
+length(MusGen$gene_id)
+length(MusGen$symbol)
+```
+
+
+
+##Plot the distribution (histogram) of how many exons protein-coding genes
+```{r}
+#Exons are sorted by chromosome, strand, start and end values by using by = gene
+exprocod <- exonsBy(Mus102, by = "gene", filter=GeneBiotypeFilter("protein_coding"))
+numberexprocod <- lengths(exprocod)
+numberexprocod
+hist(numberexprocod)
+
+```
+
+##Plot the distribution of the (spliced) length of protein-coding transcripts
+```{r}
+lengthproco <- sum(width(exprocod))
+
+hist(lengthproco)
+```
+##Time spent on this assignement ca. 4.5 hours
+
+```{r}
+sessionInfo()
+```
