@@ -1,0 +1,90 @@
+---
+title: "assignement"
+author: "Michelle Baumgarnter"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+suppressPackageStartupMessages({
+  library(AnnotationHub)
+  library(Rsubread)
+  library(rtracklayer)
+  library(Biostrings)
+  library(Rfastp)
+  library(epiwraps)
+})
+ah <- AnnotationHub()
+ensdb <- ah[["AH89211"]]
+```
+
+## Download the data from encode for H3K4me3, H3K27me3 and smooth muscle cell peaks H3K27me3 and H3K4me3
+```{r, eval = FALSE}
+dir.create("peaks")
+dir.create("tracks")
+options(timeout =1800)
+
+# H3K27me3
+download.file("https://www.encodeproject.org/files/ENCFF008XKX/@@download/ENCFF008XKX.bed.gz", "peaks/H3K27me3.bed.gz")
+download.file("https://www.encodeproject.org/files/ENCFF160FEV/@@download/ENCFF160FEV.bigWig", "tracks/H3K27me3.bw")
+
+# H3K4me3
+download.file("https://www.encodeproject.org/files/ENCFF247GVM/@@download/ENCFF247GVM.bed.gz", "peaks/H3K4me3.bed.gz")
+download.file("https://www.encodeproject.org/files/ENCFF611GSQ/@@download/ENCFF611GSQ.bigWig", "tracks/H3K4me3.bw")
+
+# H3K27me3 smooth muscle cell peak
+download.file("https://www.encodeproject.org/files/ENCFF369AEO/@@download/ENCFF369AEO.bed.gz", "peaks/smoothH3K27me3.bed.gz")
+
+# H3K4me3 smooth muscle cell peak
+download.file("https://www.encodeproject.org/files/ENCFF965WTD/@@download/ENCFF965WTD.bed.gz", "peaks/smoothH3K4me3.bed.gz")
+```
+
+
+# Reading in all the data from above
+```{r}
+k4me3 <- import("peaks/H3K4me3.bed.gz", format="NarrowPeak")
+k27me3 <- import("peaks/H3K27me3.bed.gz", format="NarrowPeak")
+smoothk27me3 <- import("peaks/smoothH3K27me3.bed.gz", format = "NarrowPeak")
+smoothk4me3 <- import("peaks/smoothH3K4me3.bed.gz", format = "NarrowPeak")
+```
+
+# Finding bivalent domains between k4me3 and k27me3
+```{r}
+sum(overlapsAny(k4me3, k27me3))
+```
+We find 3219 bivalent domains between the two. 
+
+```{r}
+#Shows me the overlapping regions between k4m3 and k27me3
+listofRegions <- list(k4me3=k4me3, k27me3=k27me3)
+regionUpset(listofRegions)
+```
+
+# How many overlaps are there between k27m3 and smoothk27m3?
+```{r}
+sum(overlapsAny(k27me3, smoothk27me3))
+```
+We find 232 overlaps. 
+
+# How many overlaps are there between k4me3 and smoothk4me3?
+```{r}
+sum(overlapsAny(k4me3, smoothk4me3))
+```
+We find 1542 overlaps
+
+# Finding bivalent domains in the smooth muscle cells overlapping either mark or their combination. 
+```{r}
+smoothListofRegions <- list(k4me3=k4me3, k27me3=k27me3, smoothk27me3=smoothk27me3, smoothk4me3=smoothk4me3)
+
+regionOverlaps(smoothListofRegions)
+regionUpset(smoothListofRegions)
+```
+
+```{r}
+sessionInfo()
+```
+ Time spent on this assignement ca. 2.5 hours
