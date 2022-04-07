@@ -1,0 +1,126 @@
+---
+title: "assignement"
+author: "Michelle Baumgarnter"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+suppressPackageStartupMessages({
+  library(GenomicRanges)
+  library(memes)
+  library(Biostrings)
+  library(AnnotationHub)
+  library(MotifDb)
+  library(universalmotif)
+  library(PWMEnrich)
+  library(ggplot2)
+})
+```
+```{r}
+#make sure to have the updated version
+BiocManager::install(c("MotifDb", "universalmotif", "TFBSTools", "memes", "PWMEnrich"))
+```
+
+Choose a transcription factor, e.g. GATA1, MYOD1, CEBPB, REST (or any of your choice that has a motif and available ChIPseq data)
+Download the (e.g. Mouse) peaks for that factor (whatever cell type)
+```{r}
+download.file("https://www.encodeproject.org/files/ENCFF366HNL/@@download/ENCFF366HNL.bed.gz", "mESC_GATA1_ENCFF366HNL.bed.gz")
+peaks <- rtracklayer::import("mESC_GATA1_ENCFF366HNL.bed.gz", format = "NarrowPeak")
+seqlevelsStyle(peaks) <- "Ensembl"
+sum(table(peaks))
+```
+
+Identify the instances of the factor’s motif
+```{r}
+#gives us slighly shorter sequence to make search for motif easier
+peak_centers <- resize(peaks, fix="center", width=100)
+# we get the genome sequence:
+ah <- AnnotationHub()
+genome <- ah[["AH68356"]]
+# we get the sequences corresponding to the peak centers:
+peak_seqs <- memes::get_sequence(peak_centers, genome)
+peak_seqs
+```
+
+```{r}
+#' findMotifInstances
+#'
+#' A wrapper around TFBSTools for scanning motif occurence, handling the 
+#' coordinate conversion as `memes` does.
+#' 
+#' @param seqs A set of sequences, e.g. `DNAStringSet`, optionally with 
+#'   coordinate as names to enable conversion.
+#' @param motif A motif, in any format recognized by `universalmotif`
+#' @param keepMatchedSeq Logical; whether to keep the matched sequence.
+#' @param ... Passed to `TFBSTools::searchSeq`; can for instance be used to set
+#'   the number of threads to use, e.g. with `mc.cores=2`
+#'
+#' @return A `GRanges` object
+findMotifInstances <- function(seqs, motif, keepMatchedSeq=FALSE, ...){
+  motif <- universalmotif::convert_motifs(motif, "TFBSTools-PWMatrix")
+  x <- suppressWarnings(TFBSTools::searchSeq(motif, subject=seqs))
+  peaks <- strsplit(gsub("-",":",names(seqs)), ":")
+  if(all(lengths(peaks)==3)){ # convert relative coordinates to absolute
+    chrs <- sapply(peaks,FUN=function(x) x[1])
+    offsets <- sapply(peaks,FUN=function(x) as.integer(x[2]))-1L
+    i <- rep(seq_along(x),lengths(x))
+    return(GRanges(chrs[i], 
+                   IRanges(offsets[i]+as.integer(unlist(lapply(x, start))),
+                           offsets[i]+as.integer(unlist(lapply(x, end)))),
+                   strand=unlist(lapply(x, strand)),
+                   score=as.numeric(unlist(lapply(x, FUN=function(x) score(x))))
+                   ))
+  }
+  x <- as(x, "GRanges")
+  score(x) <- x$absScore
+  keepFields <- c("score","relScore")
+  if(keepMatchedSeq) keepFields <- c(keepFields, "siteSeqs")
+  mcols(x) <- mcols(x)[,intersect(colnames(mcols(x)), keepFields)]
+  x
+}
+```
+```{r}
+# we search for "GATA1" in the motif database, so we check what are my available motifs and then I can choose one, if Jaspar has one I choose this one because it has high quality if not this available I will choose HOCOMOCO, quality can be seen on Letter, number at end
+motifs <- query(MotifDb, "GATA1")
+# there are several matching motifs:
+names(motifs)
+# we select one:
+motif <- motifs[["Mmusculus-jaspar2018-Gata1-MA0035.1"]]
+# we visualize it:
+view_motifs(motif)
+```
+```{r}
+motif_instances <- findMotifInstances(peak_seqs, motif, mc.cores=2) # running with 2 threads
+```
+```{r}
+mmusculus <- import(genome)["1"]
+motif_instances_genome <- findMotifInstances(mmusculus, motif, mc.cores=2)
+```
+
+```{r}
+sum(overlapsAny(motif_instances, peaks))
+percent <- (sum(overlapsAny(peaks, motif_instances)))/length(peaks)*100
+```
+```{r}
+motifs_with_peaks <- overlapsAny(motif_instances_genome, peaks)
+sum(motif_with_peaks)
+percent1 <- sum(motifs_with_peaks/length(motif_instances_genome))*100
+```
+
+Answer the following questions:
+Of all the peaks, what proportion contains a motif for the factor? 
+- Of the `r length(peaks)`, `r sum(overlapsAny(peaks, motif_instances))` (`r percent`%) contain a motif. 
+
+Of all instances of that motif in the genome, what proportion is bound by the factor (i.e. has a peak)? 
+Of the `r length(motif_instances_genome)`motif instances, `r sum(motif_with_peaks)` (`r percent1`%) overlap a peak. 
+
+```{r}
+sessionInfo()
+```
+
+Time spent on this assignement ca. 3h.
