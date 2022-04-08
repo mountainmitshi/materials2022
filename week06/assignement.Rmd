@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
 ```{r}
@@ -108,7 +108,7 @@ percent <- (sum(overlapsAny(peaks, motif_instances)))/length(peaks)*100
 ```
 ```{r}
 motifs_with_peaks <- overlapsAny(motif_instances_genome, peaks)
-sum(motif_with_peaks)
+sum(motifs_with_peaks)
 percent1 <- sum(motifs_with_peaks/length(motif_instances_genome))*100
 ```
 
@@ -117,7 +117,7 @@ Of all the peaks, what proportion contains a motif for the factor?
 - Of the `r length(peaks)`, `r sum(overlapsAny(peaks, motif_instances))` (`r percent`%) contain a motif. 
 
 Of all instances of that motif in the genome, what proportion is bound by the factor (i.e. has a peak)? 
-Of the `r length(motif_instances_genome)`motif instances, `r sum(motif_with_peaks)` (`r percent1`%) overlap a peak. 
+Of the `r length(motif_instances_genome)`motif instances, `r sum(motifs_with_peaks)` (`r percent1`%) overlap a peak. 
 
 ```{r}
 sessionInfo()
