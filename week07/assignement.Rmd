@@ -1,0 +1,157 @@
+---
+title: "assignement"
+author: "Michelle Baumgarnter"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+# Load the necessary libraries
+
+```{r}
+suppressPackageStartupMessages({
+  library(epiwraps)
+  library(AnnotationHub)
+  library(MotifDb)
+  library(memes)
+  library(universalmotif)
+  library(ensembldb)
+  library(ggplot2)
+})
+ah <- AnnotationHub(localHub=TRUE)
+genome <- ah[["AH88477"]]
+```
+
+# Function for findMotifInstances
+
+```{r}
+#' findMotifInstances
+#'
+#' A wrapper around TFBSTools for scanning motif occurence, handling the 
+#' coordinate conversion as `memes` does.
+#' 
+#' @param seqs A set of sequences, e.g. `DNAStringSet`, optionally with 
+#'   coordinate as names to enable conversion.
+#' @param motif A motif, in any format recognized by `universalmotif`
+#' @param keepMatchedSeq Logical; whether to keep the matched sequence.
+#' @param ... Passed to `TFBSTools::searchSeq`; can for instance be used to set
+#'   the number of threads to use, e.g. with `mc.cores=2`
+#'
+#' @return A `GRanges` object
+findMotifInstances <- function(seqs, motif, keepMatchedSeq=FALSE, ...){
+  motif <- universalmotif::convert_motifs(motif, "TFBSTools-PWMatrix")
+  x <- suppressWarnings(TFBSTools::searchSeq(motif, subject=seqs))
+  peaks <- strsplit(gsub("-",":",names(seqs)), ":")
+  if(all(lengths(peaks)==3)){ # convert relative coordinates to absolute
+    chrs <- sapply(peaks,FUN=function(x) x[1])
+    offsets <- sapply(peaks,FUN=function(x) as.integer(x[2]))-1L
+    i <- rep(seq_along(x),lengths(x))
+    return(GRanges(chrs[i], 
+                   IRanges(offsets[i]+as.integer(unlist(lapply(x, start))),
+                           offsets[i]+as.integer(unlist(lapply(x, end)))),
+                   strand=unlist(lapply(x, strand)),
+                   score=as.numeric(unlist(lapply(x, FUN=function(x) score(x))))
+                   ))
+  }
+  x <- as(x, "GRanges")
+  score(x) <- x$absScore
+  keepFields <- c("score","relScore")
+  if(keepMatchedSeq) keepFields <- c(keepFields, "siteSeqs")
+  mcols(x) <- mcols(x)[,intersect(colnames(mcols(x)), keepFields)]
+  x
+}
+```
+
+
+# Download the necessary files
+
+
+```{r, eval=FALSE}
+download.file("https://ethz-ins.org/content/w7/atac.chr19.bam", "atac.chr19.bam", mode="wb")
+download.file("https://ethz-ins.org/content/w7/atac.chr19.bam.bai", "atac.chr19.bam.bai", mode="wb")
+# On a slow computer, also download the tracks
+tracks <- c("full_cuts.bw", "NF_cuts.bw", "mono_cuts.bw")
+for(f in tracks){
+  download.file(paste0("https://ethz-ins.org/content/w7/",f), f, mode="wb")
+}
+```
+
+
+# Find the motifs of interest
+
+Finding the motif of the GCR factor:
+
+```{r}
+# we search for "GCR" in the motif database
+motifs <- query(MotifDb, "GCR")
+# there are several matching motifs:
+names(motifs)
+# we select one of a mouse, hocomoca is supposed to be good
+motif_GCR <- motifs[["Mmusculus-HOCOMOCOv10-GCR_MOUSE.H10MO.C"]]
+# we visualize it:
+view_motifs(motif_GCR)
+```
+
+Obtaining the sequence of the chromosome 19:
+
+```{r}
+chr19 <- GRanges("19", IRanges(1L,seqlengths(genome)["19"]))
+chr19 <- setNames(getSeq(genome, chr19), "19")
+```
+
+Restricting the motif instances to those that are in accessible regions:
+
+```{r}
+motifs_GCR <- findMotifInstances(chr19, motif_GCR, mc.cores=2) #running with 2 threads
+accessible_regions <- callPeaks("atac.chr19.bam")
+seqlevelsStyle(accessible_regions) <- "Ensembl"
+accessible_motifs <- motifs_GCR[overlapsAny(motifs_GCR, accessible_regions)]
+```
+
+Finding the motifs instances through the genome and keep only those with high confidence:
+
+```{r}
+moi_GCR <- findMotifInstances(chr19, motif_GCR, mc.cores=2) # running with 2 threads
+moi_GCR_conf <- moi_GCR[moi_GCR$score>15]
+accessible_GCR_conf <- accessible_motifs[accessible_motifs$score>15] 
+```
+
+# Plot the signal tracks around the motifs of interest
+
+We are asked for the nucleosome-free (NF cuts) and nucleosome-containing (Mono cuts) fragments.
+
+```{r}
+# we prepare the list of tracks
+tracks <- c("Full cuts"="full_cuts.bw", "NF cuts"="NF_cuts.bw", "Mono cuts"="mono_cuts.bw")
+# extract signals around the motif occurences
+# we zoom in to 500bp around the motif centers, in windows of 5bp
+sm_GCR <- signal2Matrix(tracks, moi_GCR_conf, w=5, extend=500)
+sm_accessible_motifs <- signal2Matrix(tracks, accessible_motifs, w=5, extend=500)
+# plot the signals:
+plotEnrichedHeatmaps(sm_GCR, trim=0.95)
+plotEnrichedHeatmaps(sm_accessible_motifs, trim = 0.95)
+```
+
+
+
+
+#Figure containig the heatmaps of the GCR factor around the nucleosome free and the nucleosome containing fragments:
+
+```{r}
+smb_GCR <- renormalizeBorders(sm_GCR)
+plotEnrichedHeatmaps(smb_GCR, trim=0.95)
+```
+
+
+
+#Figure containing the heatmaps of the GCR factor around the nucleosome free and the nucleosome containing fragments in accessible regions:
+```{r}
+smb_accessible_mofis <- renormalizeBorders(sm_accessible_motifs)
+plotEnrichedHeatmaps(smb_accessible_mofis, trim = 0.95)
+```
+
+```{r}
+sessionInfo()
+```
+
+Time spent on this assignement ca. 2.5h.
