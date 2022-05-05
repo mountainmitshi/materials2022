@@ -1,0 +1,19 @@
+---
+title: "assignement"
+author: "Michelle Baumgarnter"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+## What is the topic?
+As I have no prior knowledge to bioinformatic approaches to epigenetics and neither work in the field I would like to work on one of the recommended projects in the course. The comparison of the bindings of GR and MR receptors in the hippocampus upon stress would be a topic I am interested in. 
+
+## What data will you be using?
+If possible I will be using the same data that has been used in the following nature paper. https://www.nature.com/articles/s41467-021-24967-z
+
+## What are the analyses you wish to reproduce, or the questions you wish to answer?
+I wish to compare the binding of GR and MR receptors in the hippocampus under stress. I am not quite certain yet how exactly I will conduct this comparison yet I wish to reproduce the analysis noted in the nature paper under "Genome mapping and bioinformatic analysis of ChIP-Seq data". If there are any further analyses which I am not aware of that could be done I am open to ideas. 
+
+
+Regarding the group work I would like to do a group work with Deni and Sarah but we each individually suggested a topic and thought to decide together which is most sensible. 
